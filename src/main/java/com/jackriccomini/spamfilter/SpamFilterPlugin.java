@@ -207,7 +207,7 @@ public class SpamFilterPlugin extends Plugin
 		float spamRating = pMessageBad(event.getOverheadText());
 		boolean isSpam = spamRating > ((float) config.threshold() / 100);
 		if (isSpam) {
-			event.getActor().setOverheadText("");
+			event.getActor().setOverheadText(" ");
 		}
 	}
 
