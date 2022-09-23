@@ -198,7 +198,7 @@ public class SpamFilterPlugin extends Plugin
 		}
 	}
 
-	@Subscribe
+	@Subscribe(priority = -1) // run after builtin Chat Filter plugin
 	public void onOverheadTextChanged(OverheadTextChanged event) {
 		if (!(event.getActor() instanceof Player) || !config.filterOverheads()) {
 			return;
