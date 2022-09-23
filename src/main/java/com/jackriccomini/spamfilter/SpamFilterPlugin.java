@@ -200,7 +200,7 @@ public class SpamFilterPlugin extends Plugin
 		}
 	}
 
-	@Subscribe
+	@Subscribe(priority = -1) // run after builtin Chat Filter plugin
 	public void onOverheadTextChanged(OverheadTextChanged event) {
 		final String displayName = client.getLocalPlayer().getName();
 		final String senderName = event.getActor().getName();

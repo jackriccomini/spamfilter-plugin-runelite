@@ -24,7 +24,7 @@ dependencies {
 }
 
 group = 'com.jackriccomini.spamfilter'
-version = '1.0.2'
+version = '1.0.3'
 sourceCompatibility = "11"
 
 tasks.withType(JavaCompile) {
