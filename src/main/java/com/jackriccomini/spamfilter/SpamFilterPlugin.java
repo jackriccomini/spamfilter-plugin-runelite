@@ -94,7 +94,7 @@ public class SpamFilterPlugin extends Plugin
 		}
 
 		InputStream goodCorpusRes = this.getClass().getResourceAsStream("/good_corpus.txt");
-		InputStream badCorpusRes = this.getClass().getResourceAsStream("/good_corpus.txt");
+		InputStream badCorpusRes = this.getClass().getResourceAsStream("/bad_corpus.txt");
 		BufferedReader goodCorpusReader = new BufferedReader(new InputStreamReader(goodCorpusRes, StandardCharsets.UTF_8));
 		BufferedReader badCorpusReader = new BufferedReader(new InputStreamReader(badCorpusRes, StandardCharsets.UTF_8));
 		goodCorpus = goodCorpusReader.lines().collect(Collectors.toList());
