@@ -185,6 +185,7 @@ public class SpamFilterPlugin extends Plugin
 					.setTarget(ColorUtil.wrapWithColorTag("message", Color.WHITE))
 					.onClick(e -> {
 						markSpam(selectedChat);
+						client.refreshChat();
 					});
 		}
 		if (config.showMarkHam()) {
@@ -194,6 +195,7 @@ public class SpamFilterPlugin extends Plugin
 					.setTarget(ColorUtil.wrapWithColorTag("message", Color.WHITE))
 					.onClick(e -> {
 						markHam(selectedChat);
+						client.refreshChat();
 					});
 		}
 	}
