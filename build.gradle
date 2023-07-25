@@ -24,10 +24,10 @@ dependencies {
 }
 
 group = 'com.jackriccomini.spamfilter'
-version = '1.0-SNAPSHOT'
-sourceCompatibility = "1.9"
+version = '1.0.1'
+sourceCompatibility = "11"
 
 tasks.withType(JavaCompile) {
 	options.encoding = 'UTF-8'
 }
-targetCompatibility = JavaVersion.VERSION_1_9
+targetCompatibility = JavaVersion.VERSION_11

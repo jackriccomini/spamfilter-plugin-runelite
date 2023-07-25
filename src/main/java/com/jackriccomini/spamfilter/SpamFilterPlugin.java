@@ -205,8 +205,13 @@ public class SpamFilterPlugin extends Plugin
 		if (!(event.getActor() instanceof Player) || !config.filterOverheads()) {
 			return;
 		}
+		String message = event.getOverheadText();
 
-		float spamRating = pMessageBad(event.getOverheadText());
+		// Overhead text will already have leading and trailing whitespace stripped
+		// (as opposed to chatbox messages, which will not) but I'm not sure which characters
+		// the game counts as whitespace when it does this.
+		// Since we .strip() chatbox messages, .strip() overhead messages too for consistency
+		float spamRating = pMessageBad(message.strip());
 		boolean isSpam = spamRating > ((float) config.threshold() / 100);
 		if (isSpam) {
 			event.getActor().setOverheadText(" ");
@@ -232,7 +237,12 @@ public class SpamFilterPlugin extends Plugin
 			return;
 		}
 		final MessageNode messageNode = client.getMessages().get(messageId);
-		float spamRating = pMessageBad(message);
+
+		// Overhead message strings already have leading and trailing whitespace stripped but chatbox message strings
+		// do not. If we don't strip whitespace then we will tokenise overhead vs chatbox messages inconsistently and
+		// potentially assign different spam scores to the same message viewed in overhead vs chatbox
+		// e.g. https://github.com/jackriccomini/spamfilter-plugin-runelite/issues/10
+		float spamRating = pMessageBad(message.strip());
 		boolean isSpam = spamRating > ((float) config.threshold() / 100);
 
 		if (isSpam) {
@@ -266,7 +276,7 @@ public class SpamFilterPlugin extends Plugin
 
 	float pMessageBad(String message) {
 		String msg = message.toLowerCase();
-		String[] tokens = msg.split("\\s");
+		String[] tokens = msg.split("\\s+");
 		if (tokens.length == 1 && !message.startsWith("!")) {
 			// single-word messages easily induce false positives so we ignore them.
 			// however, messages starting with "!" are still processed since they are often commands
