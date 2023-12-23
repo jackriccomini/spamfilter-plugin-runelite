@@ -202,7 +202,13 @@ public class SpamFilterPlugin extends Plugin
 
 	@Subscribe
 	public void onOverheadTextChanged(OverheadTextChanged event) {
-		if (!(event.getActor() instanceof Player) || !config.filterOverheads()) {
+		final String displayName = client.getLocalPlayer().getName();
+		final String senderName = event.getActor().getName();
+		if (!(event.getActor() instanceof Player) ||
+				!config.filterOverheads() ||
+				// Disable spam filtering for the player's own messages
+				(displayName != null && displayName.equalsIgnoreCase(senderName))
+		) {
 			return;
 		}
 		String message = event.getOverheadText();
@@ -237,6 +243,15 @@ public class SpamFilterPlugin extends Plugin
 			return;
 		}
 		final MessageNode messageNode = client.getMessages().get(messageId);
+
+		// Disable spam filtering for the player's own messages
+		if (messageNode != null) {
+			final String senderName = messageNode.getName();
+			final String displayName = client.getLocalPlayer().getName();
+			if (senderName.equalsIgnoreCase(displayName)) {
+				return;
+			}
+		}
 
 		// Overhead message strings already have leading and trailing whitespace stripped but chatbox message strings
 		// do not. If we don't strip whitespace then we will tokenise overhead vs chatbox messages inconsistently and
