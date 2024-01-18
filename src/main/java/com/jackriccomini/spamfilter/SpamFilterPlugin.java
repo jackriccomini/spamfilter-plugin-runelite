@@ -246,7 +246,7 @@ public class SpamFilterPlugin extends Plugin
 
 		// Disable spam filtering for the player's own messages
 		if (messageNode != null) {
-			final String senderName = messageNode.getName();
+			final String senderName = Text.removeTags(messageNode.getName());
 			final String displayName = client.getLocalPlayer().getName();
 			if (senderName.equalsIgnoreCase(displayName)) {
 				return;
