@@ -245,12 +245,8 @@ public class SpamFilterPlugin extends Plugin
 		final MessageNode messageNode = client.getMessages().get(messageId);
 
 		// Disable spam filtering for the player's own messages
-		if (messageNode != null) {
-			final String senderName = Text.removeTags(messageNode.getName());
-			final String displayName = client.getLocalPlayer().getName();
-			if (senderName.equalsIgnoreCase(displayName)) {
-				return;
-			}
+		if (currPlayersMsg(messageNode)) {
+			return;
 		}
 
 		// Overhead message strings already have leading and trailing whitespace stripped but chatbox message strings
@@ -275,6 +271,30 @@ public class SpamFilterPlugin extends Plugin
 		}
 		stringStack[stringStackSize - 1] = message;
 
+	}
+
+	/**
+	 * This method determines if the chat message being processed is sent by the currently
+	 * logged-in player. It allows us to disable the chat filter for the player's own messages.
+	 *
+	 * @param messageNode This is the MessageNode Object that contains information about the chat message.
+	 * @return boolean This returns true if the message is sent by the player. Otherwise false.
+	 */
+	private boolean currPlayersMsg(MessageNode messageNode) {
+		if (messageNode != null) {
+			final String senderName = Text.removeTags(messageNode.getName());
+			final String displayName = client.getLocalPlayer().getName();
+
+			if (displayName == null) {
+				return true;
+			}
+
+			// Remove potential differences in encoding of the space character
+			final String normalizedSenderName = senderName.replaceAll("\\h", " ");
+			final String normalizedDisplayName = displayName.replaceAll("\\h", " ");
+			return normalizedSenderName.equalsIgnoreCase(normalizedDisplayName);
+		}
+		return false;
 	}
 
 	float pTokenBad(String token) {
