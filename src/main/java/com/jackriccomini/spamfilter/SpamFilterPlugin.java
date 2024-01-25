@@ -202,7 +202,13 @@ public class SpamFilterPlugin extends Plugin
 
 	@Subscribe
 	public void onOverheadTextChanged(OverheadTextChanged event) {
-		if (!(event.getActor() instanceof Player) || !config.filterOverheads()) {
+		final String displayName = client.getLocalPlayer().getName();
+		final String senderName = event.getActor().getName();
+		if (!(event.getActor() instanceof Player) ||
+				!config.filterOverheads() ||
+				// Disable spam filtering for the player's own messages
+				(displayName != null && displayName.equalsIgnoreCase(senderName))
+		) {
 			return;
 		}
 		String message = event.getOverheadText();
@@ -238,6 +244,11 @@ public class SpamFilterPlugin extends Plugin
 		}
 		final MessageNode messageNode = client.getMessages().get(messageId);
 
+		// Disable spam filtering for the player's own messages
+		if (isCurrPlayersMsg(messageNode)) {
+			return;
+		}
+
 		// Overhead message strings already have leading and trailing whitespace stripped but chatbox message strings
 		// do not. If we don't strip whitespace then we will tokenise overhead vs chatbox messages inconsistently and
 		// potentially assign different spam scores to the same message viewed in overhead vs chatbox
@@ -260,6 +271,30 @@ public class SpamFilterPlugin extends Plugin
 		}
 		stringStack[stringStackSize - 1] = message;
 
+	}
+
+	/**
+	 * Determines if the chat message being processed is sent by the currently
+	 * logged-in player. Used to disable the chat filter for the player's own messages.
+	 *
+	 * @param messageNode The MessageNode that contains information about the chat message.
+	 * @return boolean true if the message is sent by the player. Otherwise false.
+	 */
+	private boolean isCurrPlayersMsg(MessageNode messageNode) {
+		if (messageNode != null) {
+			final String senderName = Text.removeTags(messageNode.getName());
+			final String displayName = client.getLocalPlayer().getName();
+
+			if (displayName == null) {
+				return true;
+			}
+
+			// Remove potential differences in encoding of the space character
+			final String normalizedSenderName = senderName.replaceAll("\\h", " ");
+			final String normalizedDisplayName = displayName.replaceAll("\\h", " ");
+			return normalizedSenderName.equalsIgnoreCase(normalizedDisplayName);
+		}
+		return false;
 	}
 
 	float pTokenBad(String token) {
