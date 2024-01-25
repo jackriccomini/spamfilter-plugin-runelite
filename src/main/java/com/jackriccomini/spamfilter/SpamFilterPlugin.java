@@ -245,7 +245,7 @@ public class SpamFilterPlugin extends Plugin
 		final MessageNode messageNode = client.getMessages().get(messageId);
 
 		// Disable spam filtering for the player's own messages
-		if (currPlayersMsg(messageNode)) {
+		if (isCurrPlayersMsg(messageNode)) {
 			return;
 		}
 
@@ -274,13 +274,13 @@ public class SpamFilterPlugin extends Plugin
 	}
 
 	/**
-	 * This method determines if the chat message being processed is sent by the currently
-	 * logged-in player. It allows us to disable the chat filter for the player's own messages.
+	 * Determines if the chat message being processed is sent by the currently
+	 * logged-in player. Used to disable the chat filter for the player's own messages.
 	 *
-	 * @param messageNode This is the MessageNode Object that contains information about the chat message.
-	 * @return boolean This returns true if the message is sent by the player. Otherwise false.
+	 * @param messageNode The MessageNode that contains information about the chat message.
+	 * @return boolean true if the message is sent by the player. Otherwise false.
 	 */
-	private boolean currPlayersMsg(MessageNode messageNode) {
+	private boolean isCurrPlayersMsg(MessageNode messageNode) {
 		if (messageNode != null) {
 			final String senderName = Text.removeTags(messageNode.getName());
 			final String displayName = client.getLocalPlayer().getName();
