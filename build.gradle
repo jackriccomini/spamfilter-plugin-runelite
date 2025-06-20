@@ -10,7 +10,7 @@ repositories {
 	mavenCentral()
 }
 
-def runeLiteVersion = '1.8.20'
+def runeLiteVersion = 'latest.release'
 
 dependencies {
 	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
@@ -24,7 +24,7 @@ dependencies {
 }
 
 group = 'com.jackriccomini.spamfilter'
-version = '1.0.3'
+version = '1.0.4'
 sourceCompatibility = "11"
 
 tasks.withType(JavaCompile) {
