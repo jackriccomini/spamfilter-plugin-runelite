@@ -39,10 +39,17 @@ import java.text.DecimalFormat;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.*;
-import net.runelite.api.events.*;
+import net.runelite.api.Client;
+import net.runelite.api.MenuAction;
+import net.runelite.api.Player;
+import net.runelite.api.MessageNode;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.MenuEntryAdded;
+import net.runelite.api.events.OverheadTextChanged;
+import net.runelite.api.events.ScriptCallbackEvent;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.WidgetUtil;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -80,6 +87,8 @@ public class SpamFilterPlugin extends Plugin
 
 	private Map<String, Integer> goodCounts;
 	private Map<String, Integer> badCounts;
+
+	private static final String REPORT = "Report";
 
 	@Override
 	protected void startUp() throws Exception {
@@ -145,41 +154,53 @@ public class SpamFilterPlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onMenuOpened(MenuOpened event) {
-		MenuEntry[] entries = event.getMenuEntries();
-		// take second entry since the first may be something like "walk here" if chatbox is transparent
-		MenuEntry secondEntry = entries[entries.length - 2];
+	public void onMenuEntryAdded(MenuEntryAdded entry) {
 
-		int clickedWidgetId = secondEntry.getParam1();
-		Widget widget = client.getWidget(clickedWidgetId);
-		if (widget == null) {
+		// Report is always in the chatbox, this is a way to only add "mark ham/spam" once instead of 3+ times
+		if (!entry.getOption().equals(REPORT)) {
 			return;
 		}
 
+		if (entry.getType() != MenuAction.CC_OP.getId() && entry.getType() != MenuAction.CC_OP_LOW_PRIORITY.getId()) {
+			return;
+		}
+
+		final int groupId = WidgetUtil.componentToInterface(entry.getActionParam1());
+		final int childId = WidgetUtil.componentToId(entry.getActionParam1());
+
 		// did user click on a chat?
-		if (widget.getParentId() != WidgetInfo.CHATBOX_MESSAGE_LINES.getId()) {
+		if (groupId!= InterfaceID.CHATBOX) {
+			return;
+		}
+
+		final Widget widget = client.getWidget(groupId, childId);
+		final Widget parent = widget.getParent();
+
+		if (InterfaceID.Chatbox.SCROLLAREA != parent.getId()) {
 			return;
 		}
 
 		// As far as I can tell by skimming the builtin chat history and hiscores plugins:
-		// Click doesn't happen on a chat message, it happens on the *sender* of the chat message.
-		// There is a static list of senders. First static child is the most recent sender,
-		// Second static child is second most recent sender, and so on.
-		// Chat messages are dynamic children of CHATBOX_MESSAGES_LINES.
-		int firstChatSender = WidgetInfo.CHATBOX_FIRST_MESSAGE.getChildId();
-		int clickedChatSender = WidgetInfo.TO_CHILD(clickedWidgetId);
-		int clickOffset = clickedChatSender - firstChatSender;
+		// Convert current message static widget id to dynamic widget id of message node with message contents
+		// When message is right-clicked, we are actually right-clicking static widget that contains only sender.
+		// The actual message contents are stored in dynamic widgets that follow same order as static widgets.
+		// Every first dynamic widget is message sender, every second one is message contents,
+		// every third one is clan name and every fourth one is clan rank icon.
+		// The last two are hidden when the message is not from a clan chat or guest clan chat.
+		int firstChatSender = WidgetUtil.componentToId(InterfaceID.Chatbox.LINE0);
+		int clickOffset = childId - firstChatSender;
 		// can calculate the offset between "clicked-on chat message" and "most recent chat message"
 		// by looking at the offset between "clicked-on chat sender" and "most recent chat sender"
 		int selectedChatOffset = (clickOffset * 4) + 1;
 
-		Widget selectedChatWidget = widget.getParent().getChild(selectedChatOffset);
+		Widget selectedChatWidget = parent.getChild(selectedChatOffset);
 		if (selectedChatWidget == null) {
 			return;
 		}
 		String selectedChat = Text.removeTags(selectedChatWidget.getText());
+
 		if (config.showMarkSpam()) {
-			client.createMenuEntry(1)
+			client.getMenu().createMenuEntry(1)
 					.setOption("Mark spam")
 					.setType(MenuAction.RUNELITE)
 					.setTarget(ColorUtil.wrapWithColorTag("message", Color.WHITE))
@@ -188,8 +209,9 @@ public class SpamFilterPlugin extends Plugin
 						client.refreshChat();
 					});
 		}
+
 		if (config.showMarkHam()) {
-			client.createMenuEntry(1)
+			client.getMenu().createMenuEntry(1)
 					.setOption("Mark ham")
 					.setType(MenuAction.RUNELITE)
 					.setTarget(ColorUtil.wrapWithColorTag("message", Color.WHITE))
@@ -232,12 +254,13 @@ public class SpamFilterPlugin extends Plugin
 
 		int[] intStack = client.getIntStack();
 		int intStackSize = client.getIntStackSize();
-		String[] stringStack = client.getStringStack();
-		int stringStackSize = client.getStringStackSize();
+		Object[] objectStack = client.getObjectStack();
+		int objectStackSize = client.getObjectStackSize();
 
 		final int messageType = intStack[intStackSize - 2];
 		final int messageId = intStack[intStackSize - 1];
-		String message = stringStack[stringStackSize - 1];
+		String message = (String) objectStack[objectStackSize - 1];
+
 		ChatMessageType chatMessageType = ChatMessageType.of(messageType);
 		if (chatMessageType != ChatMessageType.PUBLICCHAT) {
 			return;
@@ -267,9 +290,10 @@ public class SpamFilterPlugin extends Plugin
 		if (config.showSpamScores()) {
 			DecimalFormat df = new DecimalFormat("0.00");
 			String spamRatingDisplay = ColorUtil.wrapWithColorTag("(" + df.format(spamRating) + ")", Color.MAGENTA);
-			message = message + " " + spamRatingDisplay;
+			message += " " + spamRatingDisplay;
 		}
-		stringStack[stringStackSize - 1] = message;
+
+		objectStack[objectStackSize - 1] = message;
 
 	}
 
@@ -278,7 +302,7 @@ public class SpamFilterPlugin extends Plugin
 	 * logged-in player. Used to disable the chat filter for the player's own messages.
 	 *
 	 * @param messageNode The MessageNode that contains information about the chat message.
-	 * @return boolean true if the message is sent by the player. Otherwise false.
+	 * @return boolean true if the message is sent by the player. Otherwise, false.
 	 */
 	private boolean isCurrPlayersMsg(MessageNode messageNode) {
 		if (messageNode != null) {
@@ -297,6 +321,21 @@ public class SpamFilterPlugin extends Plugin
 		return false;
 	}
 
+	/**
+	 * Calculates the probability that a given token is spam based on observed "good" and "bad" message counts.
+	 * <p>
+	 * The method looks up how many times the token has appeared in both good and bad messages,
+	 * and computes a naive probability:
+	 * <pre>
+	 *   badCount / (goodCount + badCount)
+	 * </pre>
+	 * If the token has never been seen before, it defaults to a neutral probability of 0.4.
+	 * The result is then clamped to the range [0.01, 0.99] to prevent extreme values that
+	 * could skew downstream calculations too heavily.
+	 *
+	 * @param token the text token (word) to evaluate
+	 * @return the spam probability of the token, between 0.01 and 0.99
+	 */
 	float pTokenBad(String token) {
 		int goodCount = goodCounts.getOrDefault(token, 0);
 		int badCount = badCounts.getOrDefault(token, 0);
@@ -309,6 +348,27 @@ public class SpamFilterPlugin extends Plugin
 		return clampLowerBound;
 	}
 
+	/**
+	 * Estimates the probability that a given message is spam based on its token composition using a naive Bayesian approach.
+	 * <p>
+	 * The message is lowercased and split into whitespace-separated tokens. Single-word messages (excluding those starting with "!")
+	 * are ignored to reduce false positives, as they are often ambiguous.
+	 * <p>
+	 * Each unique token is evaluated using {@link #pTokenBad(String)} to get its spam probability. These are combined
+	 * using naive Bayes multiplication to compute:
+	 * <ul>
+	 *   <li>{@code pPredictorsCorrect} — the joint probability that all tokens are spam indicators</li>
+	 *   <li>{@code pPredictorsIncorrect} — the joint probability that all tokens are not spam indicators</li>
+	 * </ul>
+	 * The final score is calculated using:
+	 * <pre>
+	 *   pSpam = pPredictorsCorrect / (pPredictorsCorrect + pPredictorsIncorrect)
+	 * </pre>
+	 * This produces a value between 0.0 and 1.0 indicating how likely the message is to be spam.
+	 *
+	 * @param message the full message text to evaluate
+	 * @return the calculated spam probability between 0.0 and 1.0
+	 */
 	float pMessageBad(String message) {
 		String msg = message.toLowerCase();
 		String[] tokens = msg.split("\\s+");
@@ -318,10 +378,7 @@ public class SpamFilterPlugin extends Plugin
 			// for gambling bots (e.g. "!w")
 			return 0.0f;
 		}
-		Set<String> tokensUnique = new HashSet<>();
-		for (String token : tokens) {
-			tokensUnique.add(token);
-		}
+        Set<String> tokensUnique = new HashSet<>(Arrays.asList(tokens));
 		float pPredictorsCorrect = 1f;
 		float pPredictorsIncorrect = 1f;
 		for (String token : tokensUnique) {
@@ -332,7 +389,21 @@ public class SpamFilterPlugin extends Plugin
 		return pPredictorsCorrect / (pPredictorsCorrect + pPredictorsIncorrect);
 	}
 
-	HashMap<String, Integer> countTokens(List<String>... corpuses) {
+	/**
+	 * Counts the frequency of each token (word) across one or more lists of messages (corpuses).
+	 * <p>
+	 * Each message is converted to lowercase and split on whitespace. The resulting tokens are aggregated
+	 * into a single {@link HashMap}, where each key is a token and the value is the number of times
+	 * it appears across all provided corpuses.
+	 * <p>
+	 * This method is marked with {@code @SafeVarargs} because it accepts a varargs parameter of generic types,
+	 * and it guarantees that no heap pollution will occur during its execution.
+	 *
+	 * @param corpuses one or more lists of messages, each representing a corpus
+	 * @return a map of token strings to their total counts across all corpuses
+	 */
+	@SafeVarargs
+    final HashMap<String, Integer> countTokens(List<String>... corpuses) {
 		HashMap<String, Integer> counts = new HashMap<>();
 		for (List<String> corpus : corpuses) {
 			for (String message : corpus) {
